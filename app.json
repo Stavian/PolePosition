@@ -21,7 +21,11 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "PolePosition benötigt deinen Standort im Hintergrund, um deine Fahrten automatisch aufzuzeichnen.",
         "NSLocationAlwaysUsageDescription": "PolePosition benötigt deinen Standort im Hintergrund, um deine Fahrten automatisch aufzuzeichnen.",
         "NSMotionUsageDescription": "PolePosition nutzt den Bewegungssensor zur Erkennung von starkem Bremsen und Beschleunigen.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -40,7 +44,12 @@
         "FOREGROUND_SERVICE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -74,8 +83,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "365bbd6d-03ea-44cc-b653-592eb63c46ae"
       }
-    }
+    },
+    "owner": "arndt23"
   }
 }
