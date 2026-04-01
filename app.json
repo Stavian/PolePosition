@@ -1,30 +1,81 @@
 {
   "expo": {
-    "name": "driving-tracker",
-    "slug": "driving-tracker",
+    "name": "PolePosition",
+    "slug": "poleposition",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "scheme": "poleposition",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0a0a0a"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.poleposition.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PolePosition benötigt deinen Standort für die Fahrtaufzeichnung.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "PolePosition benötigt deinen Standort im Hintergrund, um deine Fahrten automatisch aufzuzeichnen.",
+        "NSLocationAlwaysUsageDescription": "PolePosition benötigt deinen Standort im Hintergrund, um deine Fahrten automatisch aufzuzeichnen.",
+        "NSMotionUsageDescription": "PolePosition nutzt den Bewegungssensor zur Erkennung von starkem Bremsen und Beschleunigen.",
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+      }
     },
     "android": {
+      "package": "com.poleposition.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0a0a0a"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "PolePosition benötigt deinen Standort im Hintergrund, um deine Fahrten automatisch aufzuzeichnen.",
+          "locationAlwaysPermission": "PolePosition benötigt deinen Standort im Hintergrund, um deine Fahrten automatisch aufzuzeichnen.",
+          "locationWhenInUsePermission": "PolePosition benötigt deinen Standort für die Fahrtaufzeichnung.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E8341C",
+          "defaultChannel": "default"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     }
   }
 }

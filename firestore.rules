@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ───────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isGroupMember(groupId) {
+      return isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      // Users can read and write their own document only
+      allow read, write: if isOwner(uid);
+
+      // Group members can read other members' public profile fields
+      // (For leaderboard display — limited to display fields)
+      allow read: if isSignedIn();
+
+      // currentLocation subcollection: user writes their own; group members can read
+      match /currentLocation/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(uid);
+      }
+
+      // Trips: user owns their trips entirely
+      match /trips/{tripId} {
+        allow read, write, create: if isOwner(uid);
+
+        match /waypoints/{batchId} {
+          allow read, write, create: if isOwner(uid);
+        }
+      }
+
+      // Earned badges: user reads their own; server writes
+      match /earnedBadges/{badgeId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // Only Cloud Functions write badges
+      }
+    }
+
+    // ─── Groups ──────────────────────────────────────────────────────────────
+
+    match /groups/{groupId} {
+      // Only group members can read the group document
+      allow read: if isGroupMember(groupId);
+      // Only Cloud Functions create/modify groups (via callable functions)
+      allow write: if false;
+
+      // Members subcollection: members can read; only CF write
+      match /members/{uid} {
+        allow read: if isGroupMember(groupId);
+        allow write: if false; // Cloud Functions only
+      }
+
+      // Recaps: members can read
+      match /recaps/{weekId} {
+        allow read: if isGroupMember(groupId);
+        allow write: if false;
+      }
+
+      // Heatmap: members can read; CF writes
+      match /heatmapPoints/{docId} {
+        allow read: if isGroupMember(groupId);
+        allow write: if false;
+      }
+    }
+
+    // ─── Group Trips ─────────────────────────────────────────────────────────
+
+    match /groupTrips/{groupTripId} {
+      // Participants can read; members of the group can read
+      allow read: if isSignedIn() &&
+        (request.auth.uid in resource.data.participantUids ||
+         isGroupMember(resource.data.groupId));
+      // Participants can update their own participant sub-field only
+      allow update: if isSignedIn() &&
+        request.auth.uid in resource.data.participantUids;
+      // Create allowed by authenticated users (organizer)
+      allow create: if isSignedIn();
+    }
+
+    // ─── Invite Codes ────────────────────────────────────────────────────────
+
+    match /inviteCodes/{code} {
+      // Any authenticated user can read to join a group
+      allow read: if isSignedIn();
+      // Only Cloud Functions write invite codes
+      allow write: if false;
+    }
+
+    // ─── Badge Definitions ───────────────────────────────────────────────────
+
+    match /badges/{badgeId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Static, seeded by admin
+    }
+  }
+}
