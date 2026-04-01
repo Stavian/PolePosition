@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, UrlTile, PROVIDER_DEFAULT } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFriendLocations } from '../../hooks/useFriendLocations';
 import { useLocationStore } from '../../store/locationStore';
@@ -56,8 +56,7 @@ export default function MapScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        mapType={mapType}
+        provider={PROVIDER_DEFAULT}
         showsUserLocation
         showsMyLocationButton={false}
         initialRegion={{
@@ -66,8 +65,12 @@ export default function MapScreen() {
           latitudeDelta: 1,
           longitudeDelta: 1,
         }}
-        customMapStyle={darkMapStyle}
       >
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          flipY={false}
+        />
         {activeFriends.map(([uid, loc]) => {
           const member = memberMap[uid];
           if (!member) return null;
@@ -212,14 +215,3 @@ const styles = StyleSheet.create({
   nearbySpeed: { color: colors.accent, fontSize: 11, fontWeight: '600' },
 });
 
-// Google Maps dark style
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8a8a' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2d2d44' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3d3d5a' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2e' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-];
