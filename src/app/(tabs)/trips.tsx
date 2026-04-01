@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
@@ -86,10 +85,9 @@ export default function TripsScreen() {
           <Text style={styles.emptyText}>{de.trips.noTrips}</Text>
         </View>
       ) : (
-        <FlashList
+        <FlatList
           data={filteredTrips}
           keyExtractor={(t) => t.id}
-          estimatedItemSize={110}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => (
