@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../services/firebase/config';
+import { joinGroup } from '../../services/pocketbase/groups';
 import { de } from '../../i18n/de';
 import { colors } from '../../utils/colors';
 
@@ -19,8 +18,7 @@ export default function JoinGroupScreen() {
     setLoading(true);
     setError('');
     try {
-      const joinGroup = httpsCallable(functions, 'joinGroup');
-      await joinGroup({ code: trimmed });
+      await joinGroup(trimmed);
       router.back();
     } catch {
       setError(de.group.joinGroupError);

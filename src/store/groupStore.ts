@@ -1,12 +1,26 @@
 import { create } from 'zustand';
-import type { GroupMemberDocument } from '../types/firestore';
+import type { GroupTripRecord } from '../services/pocketbase/collections';
 
-interface LeaderboardStoreState {
-  members: GroupMemberDocument[];
-  setMembers: (members: GroupMemberDocument[]) => void;
+export interface GroupMember {
+  uid: string;
+  displayName: string;
+  weeklyScore: number;
+  monthlyScore: number;
+  allTimeScore: number;
+  weeklyTrips: number;
+  weeklyDistanceKm: number;
 }
 
-export const useGroupStore = create<LeaderboardStoreState>((set) => ({
+interface GroupStoreState {
+  members: GroupMember[];
+  setMembers: (members: GroupMember[]) => void;
+  activeGroupTrip: GroupTripRecord | null;
+  setActiveGroupTrip: (trip: GroupTripRecord | null) => void;
+}
+
+export const useGroupStore = create<GroupStoreState>((set) => ({
   members: [],
   setMembers: (members) => set({ members }),
+  activeGroupTrip: null,
+  setActiveGroupTrip: (activeGroupTrip) => set({ activeGroupTrip }),
 }));

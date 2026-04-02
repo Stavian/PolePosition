@@ -48,7 +48,6 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="trip/[tripId]" options={{ presentation: 'card' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,123 +1,142 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView,
-  ActivityIndicator, Alert, TextInput,
+  ActivityIndicator, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { groupTripDoc, groupTripsCol } from '../../../services/firebase/firestore';
-import { useAuth, useUserDoc } from '../../../hooks/useAuth';
+import { useAuth } from '../../../hooks/useAuth';
 import { useGroupStore } from '../../../store/groupStore';
 import { useLocationStore } from '../../../store/locationStore';
 import { ScoreRing } from '../../../components/ui/ScoreRing';
+import { subscribeToGroupTrip } from '../../../services/pocketbase/groups';
+import { pb } from '../../../services/pocketbase/client';
+import { Collections } from '../../../services/pocketbase/collections';
+import type { GroupTripRecord } from '../../../services/pocketbase/collections';
 import { de } from '../../../i18n/de';
 import { colors } from '../../../utils/colors';
-import type { GroupTripDocument, GroupTripParticipant } from '../../../types/firestore';
 import { isWithinRadius } from '../../../utils/geoUtils';
-import { addDoc } from 'firebase/firestore';
 
 const ARRIVAL_RADIUS_KM = 0.2;
+
+interface Participant {
+  displayName: string;
+  avatarUrl: string | null;
+  status: 'waiting' | 'driving' | 'arrived';
+  arrivedAt: string | null;
+  arrivalRank: number | null;
+  currentEtaMinutes: number | null;
+  tripId: string | null;
+  driveScore: number | null;
+  currentLat: number | null;
+  currentLng: number | null;
+}
+
+function parseIds(s: string | undefined): string[] {
+  try { return JSON.parse(s ?? '[]'); } catch { return []; }
+}
+
+function parseParticipants(s: string | undefined): Record<string, Participant> {
+  try { return JSON.parse(s ?? '{}'); } catch { return {}; }
+}
 
 export default function GroupTripScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const router = useRouter();
   const user = useAuth();
-  const userDoc = useUserDoc();
-  const members = useGroupStore((s) => s.members);
-  const myLocation = useLocationStore((s) => s.myLocation);
   const activeGroupTrip = useGroupStore((s) => s.activeGroupTrip);
   const setActiveGroupTrip = useGroupStore((s) => s.setActiveGroupTrip);
+  const myLocation = useLocationStore((s) => s.myLocation);
 
   const [destination, setDestination] = useState('');
   const [creating, setCreating] = useState(false);
-  const [etaUpdateTimer, setEtaUpdateTimer] = useState<ReturnType<typeof setInterval> | null>(null);
 
   // Subscribe to active group trip
   useEffect(() => {
     if (!activeGroupTrip) return;
-    const unsub = onSnapshot(groupTripDoc(activeGroupTrip.groupTripId), (snap) => {
-      if (snap.exists()) setActiveGroupTrip(snap.data());
+    const unsub = subscribeToGroupTrip(activeGroupTrip.id, (trip) => {
+      setActiveGroupTrip(trip);
     });
-    return () => unsub();
-  }, [activeGroupTrip?.groupTripId]);
+    return unsub;
+  }, [activeGroupTrip?.id]);
 
   // Auto-detect arrival
   useEffect(() => {
     if (!activeGroupTrip || !myLocation || !user) return;
-    const me = activeGroupTrip.participants[user.uid];
+    const participants = parseParticipants(activeGroupTrip.participants_data);
+    const me = participants[user.id];
     if (!me || me.status === 'arrived') return;
 
     const arrived = isWithinRadius(
       myLocation.lat, myLocation.lng,
-      activeGroupTrip.destinationLat, activeGroupTrip.destinationLng,
+      activeGroupTrip.destination_lat, activeGroupTrip.destination_lng,
       ARRIVAL_RADIUS_KM,
     );
 
     if (arrived) {
-      updateDoc(groupTripDoc(activeGroupTrip.groupTripId), {
-        [`participants.${user.uid}.status`]: 'arrived',
-        [`participants.${user.uid}.arrivedAt`]: serverTimestamp(),
-      } as any);
+      const updated = { ...participants };
+      updated[user.id] = { ...updated[user.id], status: 'arrived', arrivedAt: new Date().toISOString() };
+      pb.collection(Collections.GroupTrips).update(activeGroupTrip.id, {
+        participants_data: JSON.stringify(updated),
+      });
     }
   }, [myLocation?.lat, myLocation?.lng]);
 
   const handleCreateGroupTrip = async () => {
-    if (!destination.trim() || !groupId || !user || !userDoc) return;
+    if (!destination.trim() || !groupId || !user) return;
     setCreating(true);
     try {
-      const ref = await addDoc(groupTripsCol(), {
-        groupTripId: '',
-        groupId,
-        createdBy: user.uid,
-        title: `Fahrt nach ${destination}`,
-        destinationLat: 0,
-        destinationLng: 0,
-        destinationAddress: destination,
-        startedAt: serverTimestamp(),
-        status: 'waiting',
-        participantUids: [user.uid],
-        participants: {
-          [user.uid]: {
-            displayName: userDoc.displayName,
-            avatarUrl: userDoc.avatarUrl,
-            joinedAt: serverTimestamp(),
-            status: 'waiting',
-            arrivedAt: null,
-            arrivalRank: null,
-            currentEtaMinutes: null,
-            tripId: null,
-            driveScore: null,
-            currentLat: null,
-            currentLng: null,
-          } as GroupTripParticipant,
+      const participantsData: Record<string, Participant> = {
+        [user.id]: {
+          displayName: user.name,
+          avatarUrl: null,
+          status: 'waiting',
+          arrivedAt: null,
+          arrivalRank: null,
+          currentEtaMinutes: null,
+          tripId: null,
+          driveScore: null,
+          currentLat: null,
+          currentLng: null,
         },
-      } as any);
-      await updateDoc(ref, { groupTripId: ref.id });
-      setActiveGroupTrip({ ...({} as GroupTripDocument), groupTripId: ref.id, groupId, status: 'waiting' } as any);
+      };
+      const record = await pb.collection(Collections.GroupTrips).create<GroupTripRecord>({
+        group_id: groupId,
+        created_by: user.id,
+        title: `Fahrt nach ${destination}`,
+        destination_lat: 0,
+        destination_lng: 0,
+        destination_address: destination,
+        status: 'waiting',
+        participant_ids: JSON.stringify([user.id]),
+        participants_data: JSON.stringify(participantsData),
+      });
+      setActiveGroupTrip(record);
     } finally {
       setCreating(false);
     }
   };
 
   const handleJoin = async () => {
-    if (!activeGroupTrip || !user || !userDoc) return;
-    await updateDoc(groupTripDoc(activeGroupTrip.groupTripId), {
-      participantUids: [...activeGroupTrip.participantUids, user.uid],
-      [`participants.${user.uid}`]: {
-        displayName: userDoc.displayName,
-        avatarUrl: userDoc.avatarUrl,
-        joinedAt: serverTimestamp(),
-        status: 'driving',
-        arrivedAt: null,
-        arrivalRank: null,
-        currentEtaMinutes: null,
-        tripId: null,
-        driveScore: null,
-        currentLat: myLocation?.lat ?? null,
-        currentLng: myLocation?.lng ?? null,
-      } as GroupTripParticipant,
-    } as any);
+    if (!activeGroupTrip || !user) return;
+    const ids = parseIds(activeGroupTrip.participant_ids);
+    const participants = parseParticipants(activeGroupTrip.participants_data);
+    participants[user.id] = {
+      displayName: user.name,
+      avatarUrl: null,
+      status: 'driving',
+      arrivedAt: null,
+      arrivalRank: null,
+      currentEtaMinutes: null,
+      tripId: null,
+      driveScore: null,
+      currentLat: myLocation?.lat ?? null,
+      currentLng: myLocation?.lng ?? null,
+    };
+    await pb.collection(Collections.GroupTrips).update(activeGroupTrip.id, {
+      participant_ids: JSON.stringify([...ids, user.id]),
+      participants_data: JSON.stringify(participants),
+    });
   };
 
   if (!activeGroupTrip) {
@@ -153,12 +172,13 @@ export default function GroupTripScreen() {
     );
   }
 
-  const participants = Object.entries(activeGroupTrip.participants ?? {}).sort(
+  const participants = Object.entries(parseParticipants(activeGroupTrip.participants_data)).sort(
     ([, a], [, b]) => (a.arrivalRank ?? 99) - (b.arrivalRank ?? 99),
   );
 
   const arrivedCount = participants.filter(([, p]) => p.status === 'arrived').length;
   const allArrived = arrivedCount === participants.length && participants.length > 0;
+  const participantIds = parseIds(activeGroupTrip.participant_ids);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -172,7 +192,7 @@ export default function GroupTripScreen() {
 
         <View style={styles.destCard}>
           <Text style={styles.destIcon}>🏁</Text>
-          <Text style={styles.destText}>{activeGroupTrip.destinationAddress}</Text>
+          <Text style={styles.destText}>{activeGroupTrip.destination_address}</Text>
         </View>
 
         {allArrived && (
@@ -188,11 +208,11 @@ export default function GroupTripScreen() {
             key={uid}
             participant={participant}
             rank={index + 1}
-            isMe={uid === user?.uid}
+            isMe={uid === user?.id}
           />
         ))}
 
-        {user && !activeGroupTrip.participantUids.includes(user.uid) && (
+        {user && !participantIds.includes(user.id) && (
           <Pressable style={styles.joinBtn} onPress={handleJoin}>
             <Text style={styles.joinBtnText}>{de.groupTrip.joinGroupTrip}</Text>
           </Pressable>
@@ -207,7 +227,7 @@ function RaceParticipantRow({
   rank,
   isMe,
 }: {
-  participant: GroupTripParticipant;
+  participant: Participant;
   rank: number;
   isMe: boolean;
 }) {

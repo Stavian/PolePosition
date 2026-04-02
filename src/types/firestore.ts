@@ -1,6 +1,4 @@
-import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
-
-// Use plain objects compatible with both Firebase JS SDK and potential native migration
+// Plain object types (no Firebase dependency)
 export type Timestamp = {
   toDate(): Date;
   toMillis(): number;
